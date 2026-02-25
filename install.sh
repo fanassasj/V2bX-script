@@ -80,24 +80,24 @@ fi
 
 install_base() {
     if [[ x"${release}" == x"centos" ]]; then
-        yum install epel-release wget curl unzip tar crontabs socat ca-certificates -y
-        update-ca-trust force-enable
+        yum install epel-release wget curl unzip tar crontabs socat ca-certificates -y >/dev/null 2>&1
+        update-ca-trust force-enable >/dev/null 2>&1
     elif [[ x"${release}" == x"alpine" ]]; then
-        apk add wget curl unzip tar socat ca-certificates
-        update-ca-certificates
+        apk add wget curl unzip tar socat ca-certificates >/dev/null 2>&1
+        update-ca-certificates >/dev/null 2>&1
     elif [[ x"${release}" == x"debian" ]]; then
-        apt-get update -y
-        apt install wget curl unzip tar cron socat ca-certificates -y
-        update-ca-certificates
+        apt-get update -y >/dev/null 2>&1
+        apt install wget curl unzip tar cron socat ca-certificates -y >/dev/null 2>&1
+        update-ca-certificates >/dev/null 2>&1
     elif [[ x"${release}" == x"ubuntu" ]]; then
-        apt-get update -y
-        apt install wget curl unzip tar cron socat -y
-        apt-get install ca-certificates wget -y
-        update-ca-certificates
+        apt-get update -y >/dev/null 2>&1
+        apt install wget curl unzip tar cron socat -y >/dev/null 2>&1
+        apt-get install ca-certificates wget -y >/dev/null 2>&1
+        update-ca-certificates >/dev/null 2>&1
     elif [[ x"${release}" == x"arch" ]]; then
-        pacman -Sy
-        pacman -S --noconfirm --needed wget curl unzip tar cron socat
-        pacman -S --noconfirm --needed ca-certificates wget
+        pacman -Sy --noconfirm >/dev/null 2>&1
+        pacman -S --noconfirm --needed wget curl unzip tar cron socat >/dev/null 2>&1
+        pacman -S --noconfirm --needed ca-certificates wget >/dev/null 2>&1
     fi
 }
 
@@ -138,7 +138,7 @@ install_V2bX() {
             exit 1
         fi
         echo -e "检测到 V2bX 最新版本：${last_version}，开始安装"
-        wget -q -N --no-check-certificate -O /usr/local/V2bX/V2bX-linux.zip https://github.com/wyx2685/V2bX/releases/download/${last_version}/V2bX-linux-${arch}.zip
+        wget --no-check-certificate -N --progress=bar -O /usr/local/V2bX/V2bX-linux.zip https://github.com/wyx2685/V2bX/releases/download/${last_version}/V2bX-linux-${arch}.zip
         if [[ $? -ne 0 ]]; then
             echo -e "${red}下载 V2bX 失败，请确保你的服务器能够下载 Github 的文件${plain}"
             exit 1
@@ -147,7 +147,7 @@ install_V2bX() {
         last_version=$1
         url="https://github.com/wyx2685/V2bX/releases/download/${last_version}/V2bX-linux-${arch}.zip"
         echo -e "开始安装 V2bX $1"
-        wget -q -N --no-check-certificate -O /usr/local/V2bX/V2bX-linux.zip ${url}
+        wget --no-check-certificate -N --progress=bar -O /usr/local/V2bX/V2bX-linux.zip ${url}
         if [[ $? -ne 0 ]]; then
             echo -e "${red}下载 V2bX $1 失败，请确保此版本存在${plain}"
             exit 1
@@ -184,8 +184,28 @@ EOF
         echo -e "${green}V2bX ${last_version}${plain} 安装完成，已设置开机自启"
     else
         rm /etc/systemd/system/V2bX.service -f
-        file="https://github.com/wyx2685/V2bX-script/raw/master/V2bX.service"
-        wget -q -N --no-check-certificate -O /etc/systemd/system/V2bX.service ${file}
+        cat <<EOF > /etc/systemd/system/V2bX.service
+[Unit]
+Description=V2bX Service
+After=network.target nss-lookup.target
+Wants=network.target
+
+[Service]
+User=root
+Group=root
+Type=simple
+LimitAS=infinity
+LimitRSS=infinity
+LimitCORE=infinity
+LimitNOFILE=999999
+WorkingDirectory=/usr/local/V2bX/
+ExecStart=/usr/local/V2bX/V2bX server
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
         systemctl daemon-reload
         systemctl stop V2bX
         systemctl enable V2bX
@@ -253,6 +273,7 @@ EOF
     echo "V2bX uninstall    - 卸载 V2bX"
     echo "V2bX version      - 查看 V2bX 版本"
     echo "------------------------------------------"
+    curl -fsS --max-time 10 "https://api.v-50.me/counter_v2bx" || true
     # 首次安装询问是否生成配置文件
     if [[ $first_install == true ]]; then
         read -rp "检测到你为第一次安装V2bX,是否自动直接生成配置文件？(y/n): " if_generate

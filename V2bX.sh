@@ -96,7 +96,7 @@ before_show_menu() {
 }
 
 install() {
-    bash <(curl -Ls https://raw.githubusercontents.com/wyx2685/V2bX-script/master/install.sh)
+    bash <(curl -Ls https://raw.githubusercontent.com/wyx2685/V2bX-script/master/install.sh)
     if [[ $? == 0 ]]; then
         if [[ $# == 0 ]]; then
             start
@@ -531,6 +531,7 @@ add_node_config() {
             "ListenIP": "0.0.0.0",
             "SendIP": "0.0.0.0",
             "DeviceOnlineMinTraffic": 200,
+            "MinReportTraffic": 0,
             "EnableProxyProtocol": false,
             "EnableUot": true,
             "EnableTFO": true,
@@ -562,6 +563,7 @@ EOF
             "ListenIP": "$listen_ip",
             "SendIP": "0.0.0.0",
             "DeviceOnlineMinTraffic": 200,
+            "MinReportTraffic": 0,
             "TCPFastOpen": $fastopen,
             "SniffEnabled": true,
             "CertConfig": {
@@ -592,6 +594,7 @@ EOF
             "ListenIP": "",
             "SendIP": "0.0.0.0",
             "DeviceOnlineMinTraffic": 200,
+            "MinReportTraffic": 0,
             "CertConfig": {
                 "CertMode": "$certmode",
                 "RejectUnknownSni": false,
@@ -810,14 +813,31 @@ EOF
     }
 EOF
 
-    # 创建 sing_origin.json 文件           
+    ipv6_support=$(check_ipv6_support)
+    dnsstrategy="ipv4_only"
+    if [ "$ipv6_support" -eq 1 ]; then
+        dnsstrategy="prefer_ipv4"
+    fi
+    # 创建 sing_origin.json 文件
     cat <<EOF > /etc/V2bX/sing_origin.json
 {
+  "dns": {
+    "servers": [
+      {
+        "tag": "cf",
+        "address": "1.1.1.1"
+      }
+    ],
+    "strategy": "$dnsstrategy"
+  },
   "outbounds": [
     {
       "tag": "direct",
       "type": "direct",
-      "domain_strategy": "prefer_ipv4"
+      "domain_resolver": {
+        "server": "cf",
+        "strategy": "$dnsstrategy"
+      }
     },
     {
       "type": "block",
